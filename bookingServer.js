@@ -4,6 +4,9 @@ import { connectDB } from "./db/mongo.js";
 import apartmentRoutes from "./routes/apartment.routes.js";
 import bookingRoutes from "./routes/booking.routes.js";
 
+import { startApartmentConsumer } from "./consumers/apartment.consumer.js";
+import { setupExchangeAndQueue } from "./exchangers/booking.exchange.js";
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -15,6 +18,12 @@ connectDB();
 // Routes
 app.use("/apartments", apartmentRoutes);
 app.use("/bookings", bookingRoutes);
+
+// Start RabbitMQ consumer
+startApartmentConsumer();
+
+// Start RabbitMQ exchanger
+setupExchangeAndQueue();
 
 // Start server
 app.listen(PORT, () => {
