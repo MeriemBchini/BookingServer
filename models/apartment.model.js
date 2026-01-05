@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
 const apartmentSchema = new mongoose.Schema({
-  id: String,
+  id: { type: String, unique: true }, 
   name: String,
   address: String,
   description: String,
@@ -11,7 +11,8 @@ const apartmentSchema = new mongoose.Schema({
   isVisible: Boolean,
   areaInSquareMeters: Number,
   isFurnished: Boolean,
-  pricePerDay: Number,
+  pricePerDay: Number
 }, { timestamps: true });
 
-export default mongoose.model("Apartment", apartmentSchema);
+// Explicitly naming the collection 'apartments'
+export default mongoose.model("Apartment", apartmentSchema, "apartments");
