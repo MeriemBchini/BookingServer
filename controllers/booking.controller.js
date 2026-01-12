@@ -2,6 +2,7 @@ import { createBooking } from "../services/booking.service.js";
 import Booking from "../models/booking.model.js";
 import Apartment from "../models/apartment.model.js";
 import amqp from "amqplib";
+import { handleAgentResponse } from "../agents/requestClassifier.agent.js";
 
 const RABBITMQ_URL = process.env.RABBITMQ_URL || "amqp://localhost:5672";
 const EXCHANGE_NAME = "Booking.change";
@@ -12,6 +13,12 @@ export async function bookApartment(req, res) {
     const { apartmentId, startDate, endDate } = req.body;
 
     if (!apartmentId || !startDate || !endDate) {
+      await handleAgentResponse({
+        action: "BOOK_APARTMENT",
+        success: false,
+        errorReason: "Missing apartmentId, startDate or endDate"
+      });
+
       return res.status(400).json({
         message: "apartmentId, startDate and endDate are required",
       });
@@ -19,6 +26,13 @@ export async function bookApartment(req, res) {
 
     const apartment = await Apartment.findOne({ id: apartmentId });
     if (!apartment) {
+      await handleAgentResponse({
+        action: "BOOK_APARTMENT",
+        success: false,
+        errorReason: "Apartment not found",
+        apartment: { id: apartmentId }
+      });
+
       return res.status(404).json({
         message: "Apartment not found or not synced yet",
       });
@@ -26,17 +40,40 @@ export async function bookApartment(req, res) {
 
     const booking = await createBooking(apartmentId, startDate, endDate);
     if (!booking) {
+      await handleAgentResponse({
+        action: "BOOK_APARTMENT",
+        success: false,
+        errorReason: "Apartment not available",
+        apartment
+      });
+
       return res.status(409).json({ message: "Apartment not available" });
     }
 
     await publishEvent("BOOKING_CREATED", booking);
 
+    // ✅ SUCCESS → CALL AGENT
+    await handleAgentResponse({
+      action: "BOOK_APARTMENT",
+      success: true,
+      apartment,
+      booking
+    });
+
     res.status(201).json({
       message: "Booking successful",
       booking,
     });
+
   } catch (error) {
     console.error(error);
+
+    await handleAgentResponse({
+      action: "BOOK_APARTMENT",
+      success: false,
+      errorReason: error.message
+    });
+
     res.status(500).json({ message: "Error creating booking" });
   }
 }
@@ -48,6 +85,12 @@ export async function updateBooking(req, res) {
     const { startDate, endDate } = req.body;
 
     if (!startDate || !endDate) {
+      await handleAgentResponse({
+        action: "UPDATE_BOOKING",
+        success: false,
+        errorReason: "Missing startDate or endDate"
+      });
+
       return res.status(400).json({
         message: "startDate and endDate are required",
       });
@@ -55,12 +98,17 @@ export async function updateBooking(req, res) {
 
     const booking = await Booking.findById(id);
     if (!booking) {
+      await handleAgentResponse({
+        action: "UPDATE_BOOKING",
+        success: false,
+        errorReason: "Booking not found"
+      });
+
       return res.status(404).json({
         message: "Booking not found",
       });
     }
 
-    // availability check (exclude current booking)
     const conflict = await Booking.findOne({
       apartmentId: booking.apartmentId,
       _id: { $ne: id },
@@ -69,6 +117,13 @@ export async function updateBooking(req, res) {
     });
 
     if (conflict) {
+      await handleAgentResponse({
+        action: "UPDATE_BOOKING",
+        success: false,
+        errorReason: "Apartment not available for these dates",
+        booking
+      });
+
       return res.status(409).json({
         message: "Apartment not available for these dates",
       });
@@ -80,12 +135,27 @@ export async function updateBooking(req, res) {
 
     await publishEvent("BOOKING_UPDATED", booking);
 
+    // ✅ SUCCESS
+    await handleAgentResponse({
+      action: "UPDATE_BOOKING",
+      success: true,
+      booking
+    });
+
     res.status(200).json({
       message: "Booking updated",
       booking,
     });
+
   } catch (error) {
     console.error(error);
+
+    await handleAgentResponse({
+      action: "UPDATE_BOOKING",
+      success: false,
+      errorReason: error.message
+    });
+
     res.status(500).json({ message: "Error updating booking" });
   }
 }
@@ -97,6 +167,12 @@ export async function deleteBooking(req, res) {
 
     const booking = await Booking.findByIdAndDelete(id);
     if (!booking) {
+      await handleAgentResponse({
+        action: "DELETE_BOOKING",
+        success: false,
+        errorReason: "Booking not found"
+      });
+
       return res.status(404).json({
         message: "Booking not found",
       });
@@ -104,11 +180,26 @@ export async function deleteBooking(req, res) {
 
     await publishEvent("BOOKING_DELETED", booking);
 
+    // ✅ SUCCESS
+    await handleAgentResponse({
+      action: "DELETE_BOOKING",
+      success: true,
+      booking
+    });
+
     res.status(200).json({
       message: "Booking deleted",
     });
+
   } catch (error) {
     console.error(error);
+
+    await handleAgentResponse({
+      action: "DELETE_BOOKING",
+      success: false,
+      errorReason: error.message
+    });
+
     res.status(500).json({ message: "Error deleting booking" });
   }
 }
@@ -123,7 +214,7 @@ export async function getAllBookings(req, res) {
     res.status(500).json({ error: "Failed to retrieve bookings" });
   }
 }
-// Get booking by ID
+
 export async function getBookingById(req, res) {
   try {
     const { id } = req.params;
@@ -143,7 +234,6 @@ export async function getBookingById(req, res) {
     });
   }
 }
-
 
 /* ---------------- RABBITMQ HELPER ---------------- */
 async function publishEvent(eventType, booking) {
@@ -171,7 +261,7 @@ async function publishEvent(eventType, booking) {
     await channel.close();
     await connection.close();
 
-    console.log(` Event sent: ${eventType}`);
+    console.log(`📨 Event sent: ${eventType}`);
   } catch (err) {
     console.error("RabbitMQ publish error:", err);
   }
