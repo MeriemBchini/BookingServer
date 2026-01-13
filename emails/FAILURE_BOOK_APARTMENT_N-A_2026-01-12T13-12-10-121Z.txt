@@ -1,5 +1,0 @@
-Subject: FAILURE – BOOK_APARTMENT
-
-Here is a polite failure message:
-
-"Sorry, we're unable to book apartment [724c7000-60a2-4fb3-a845-534041101e30] 'string 2' at the moment. Unfortunately, it's not available for booking. Please try again later or explore other options that suit your needs."

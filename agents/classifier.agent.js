@@ -17,7 +17,7 @@ Reply ONLY with valid JSON:
 
   const response = await llmGenerate(prompt);
 
-  // 🔒 SAFE JSON extraction
+  //  SAFE JSON extraction
   const match = response.match(/\{[\s\S]*\}/);
   if (!match) {
     throw new Error("Invalid classifier response: " + response);

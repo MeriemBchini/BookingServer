@@ -1,3 +1,0 @@
-Subject: SUCCESS – BOOK_APARTMENT
-
-Congratulations! Your booking request for apartment "string 2" at address "" has been successfully processed. Booking ID #6964f20943cc63dde39183b1 confirms your reservation from March 10, 2026 to April 12, 2026. We're thrilled to have you staying with us!

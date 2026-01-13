@@ -1,7 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 
-const EMAIL_DIR = path.resolve("emails");
+const EMAIL_DIR = "/tmp/emails";
 
 export async function saveEmailToFile({
     type,        // "SUCCESS" | "FAILURE"
@@ -10,8 +10,8 @@ export async function saveEmailToFile({
     bookingId
 }) {
     console.log(`Saving email to file with parameters:`, { type, action, bookingId });
-    console.log("📂 EMAIL_DIR:", EMAIL_DIR);
-    console.log("📍 CWD:", process.cwd());
+    console.log(" EMAIL_DIR:", EMAIL_DIR);
+    console.log(" CWD:", process.cwd());
     try {
         await fs.mkdir(EMAIL_DIR, { recursive: true });
 
